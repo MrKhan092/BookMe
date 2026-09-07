@@ -4,11 +4,13 @@ import 'dotenv/config';
 import http from 'http';
 import { connectDB } from './config/db.js';
 import authRoutes from './routes/authRouter.js';
+import adminRoute from './routes/adminRoute.js'
 import serviceRoutes from './routes/serviceRoutes.js';
 import availabilityRoutes from './routes/availabilityRoutes.js';
 import integrationRoutes from './routes/integrationRoutes.js';
-
-
+import bookingRoutes from './routes/bookingRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+import  publicRoutes from './routes/publicRoutes.js'
 const PORT=process.env.PORT || 5000;
 const app = express();
 app.use(cors());
@@ -22,9 +24,15 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin',adminRoute)
 app.use('/api/services',serviceRoutes); 
 app.use('/api/availability',availabilityRoutes )
 app.use('/api/integration',integrationRoutes)
+app.use('/api/bookings',bookingRoutes);
+app.use('/api/payments',paymentRoutes);
+app.use('/api/public',publicRoutes);
+app.use('/public',publicRoutes)
+
 const server = http.createServer(app);
 server.on('error', (err) => {
     if(err.code === 'EADDRINUSE') {
