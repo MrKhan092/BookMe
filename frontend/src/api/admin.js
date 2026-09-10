@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const adminClient=axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"
+    baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api"
 });
 
 adminClient.interceptors.request.use((config)=>{

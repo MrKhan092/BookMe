@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   registerUser,
   loginUser,
@@ -298,6 +298,23 @@ export default function AuthPage() {
               ? "Already have an account? Log in"
               : "Don't have an account? Sign up"}
           </button>
+
+          <Link
+            to="/admin/login"
+            style={{
+              display: "block",
+              textAlign: "center",
+              marginTop: "12px",
+              fontSize: "13px",
+              color: "#94a3b8",
+              textDecoration: "none",
+              transition: "color 0.2s",
+            }}
+            onMouseEnter={(e) => (e.target.style.color = "#7c3aed")}
+            onMouseLeave={(e) => (e.target.style.color = "#94a3b8")}
+          >
+            Admin? Sign in here →
+          </Link>
         </div>
       </div>
     </div>

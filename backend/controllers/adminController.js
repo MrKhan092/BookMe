@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Booking from "../models/Booking.js";
 import User from "../models/User.js";
@@ -102,10 +101,10 @@ const getAdminSummary = async () => {
 };
 
 const isAdminPasswordValid = (password) =>{
-  if(process.env.ADMIN_PASSWORD){
-    return bcrypt.compare(password,process.env.ADMIN_PASSWORD)
+  if(!process.env.ADMIN_PASSWORD){
+    return false;
   }
-  return password===process.env.ADMIN_PASSWORD;
+  return password === process.env.ADMIN_PASSWORD;
 };
 
 export const loginAdmin=async(req ,res)=>{

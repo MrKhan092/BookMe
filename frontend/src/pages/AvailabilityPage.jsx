@@ -31,19 +31,32 @@ export default function AvailabilityPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const numberToDay = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+
     listAvailability()
       .then((r) => {
-        const data = r.data.availability || r.data || {};
-        // Ensure object format { Monday: [{start, end}], ... }
+        const data = r.data.availability || r.data || [];
+        const obj = {};
         if (Array.isArray(data)) {
-          const obj = {};
           data.forEach((item) => {
-            if (item.day) obj[item.day] = item.windows || [];
+            const dayName = item.day || numberToDay[item.dayOfWeek];
+            if (dayName) {
+              obj[dayName] = (item.slot || item.windows || []).map((s) => ({
+                start: s.start || s.startTime || "",
+                end: s.end || s.endTime || "",
+              }));
+            }
           });
-          setAvailability(obj);
-        } else {
-          setAvailability(data);
         }
+        setAvailability(obj);
       })
       .catch(() => {});
   }, []);
@@ -91,7 +104,28 @@ export default function AvailabilityPage() {
     setLoading(true);
     setMessage("");
     try {
-      await saveAvailability(availability);
+      // Backend expects one call per day with { dayOfWeek: 0-6, slot: [...] }
+      // DAYS array: Monday=0 index, but dayOfWeek: 0=Sunday,1=Monday,...,6=Saturday
+      const dayToNumber = {
+        Sunday: 0,
+        Monday: 1,
+        Tuesday: 2,
+        Wednesday: 3,
+        Thursday: 4,
+        Friday: 5,
+        Saturday: 6,
+      };
+
+      const promises = DAYS.map((day) => {
+        const windows = availability[day] || [];
+        const slot = windows.map((w) => ({
+          startTime: w.start || w.startTime,
+          endTime: w.end || w.endTime,
+        }));
+        return saveAvailability({ dayOfWeek: dayToNumber[day], slot });
+      });
+
+      await Promise.all(promises);
       setMessage("Availability saved!");
     } catch (err) {
       setMessage(err.response?.data?.message || "Failed to save.");

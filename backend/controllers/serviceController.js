@@ -12,7 +12,7 @@ export const listServices=async(req,res)=>{
 
 export const createService=async(req,res)=>{
     try{
-        const {name,duration,price,description,icon}=req.body;
+        const {name,duration,price,description,icon,isActive}=req.body;
         if(!name || !duration ){
             return res.status(400).json({message:'Name and duration are required'});
         }
@@ -23,6 +23,7 @@ export const createService=async(req,res)=>{
             price:price||0,
             description:description||'',
             icon:icon||'C1.png',
+            isActive: isActive !== undefined ? isActive : true,
         })
         res.status(201).json({message:'Service created',service})
     }catch(error){

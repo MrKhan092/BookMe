@@ -1,14 +1,13 @@
 import mongoose from "mongoose";
-import MimeNode from "nodemailer/lib/mime-node";
 
 const slotSchema = new mongoose.Schema(
     {
         startTime:{
-            type:Date,
+            type:String,
             required:true,  
         },
         endTime:{
-            type:Date,
+            type:String,
             required:true,
         },
         
