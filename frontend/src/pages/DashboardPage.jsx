@@ -50,7 +50,7 @@ export default function DashboardPage() {
   // Stats
   const totalBookings = bookings.length;
   const confirmedBookings = bookings.filter((b) => b.status === "confirmed").length;
-  const totalRevenue = payments?.totalEarned || bookings.reduce((s, b) => s + (b.amount || 0), 0);
+  const totalRevenue = Math.round((payments?.wallet?.earned || bookings.reduce((s, b) => s + (b.amount || 0), 0)) / 100);
   const activeServices = services.filter((sv) => sv.isActive).length;
 
   // Bar chart: bookings by day of week
@@ -70,7 +70,7 @@ export default function DashboardPage() {
     .forEach((b) => {
       const d = new Date(b.createdAt || b.date);
       const key = d.toLocaleString("en", { month: "short" });
-      monthCounts[key] = (monthCounts[key] || 0) + (b.amount || 0);
+      monthCounts[key] = (monthCounts[key] || 0) + Math.round((b.amount || 0) / 100);
     });
   const lineData = Object.entries(monthCounts).map(([label, value]) => ({
     label,

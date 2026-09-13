@@ -12,12 +12,13 @@ import {
 export default function BookingSuccessPage() {
   const [searchParams] = useSearchParams();
   const [booking, setBooking] = useState(null);
+  const slug = searchParams.get("slug");
 
   useEffect(() => {
     const bookingId = searchParams.get("bookingId");
     const sessionId = searchParams.get("session_id");
     if (bookingId || sessionId) {
-      getBookingStatus({ bookingId, session_id: sessionId })
+      getBookingStatus({ booking_id: bookingId, session_id: sessionId })
         .then((r) => setBooking(r.data.booking || r.data))
         .catch(() => {});
     }
@@ -61,9 +62,9 @@ export default function BookingSuccessPage() {
           </a>
         )}
 
-        <Link to="/" className={s.backLink}>
+        <Link to={slug ? `/book/${slug}` : "/"} className={s.backLink}>
           <ArrowLeft className={s.backIcon} />
-          Back to home
+          Book another session
         </Link>
       </div>
     </div>

@@ -41,7 +41,7 @@ export default function PublicBookingPage() {
   // Booking form
   const [date, setDate] = useState("");
   const [slots, setSlots] = useState([]);
-  const [selectedSlot, setSelectedSlot] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -86,7 +86,7 @@ export default function PublicBookingPage() {
     setOtpLoading(true);
     setMessage("");
     try {
-      await requestPublicBookingOtp(slug, { email });
+      await requestPublicBookingOtp(slug, { customerEmail: email });
       setOtpSent(true);
       setMessage("Verification code sent!");
     } catch (err) {
@@ -101,7 +101,7 @@ export default function PublicBookingPage() {
     setOtpLoading(true);
     setMessage("");
     try {
-      await verifyPublicBookingOtp(slug, { email, emailOtp: otp });
+      await verifyPublicBookingOtp(slug, { customerEmail: email, emailOtp: otp });
       setOtpVerified(true);
       setMessage("Email verified!");
     } catch (err) {
@@ -125,7 +125,8 @@ export default function PublicBookingPage() {
       const { data } = await createPublicBooking(slug, {
         serviceId: selectedService._id,
         date,
-        startTime: selectedSlot,
+        startTime: selectedSlot.startTime,
+        endTime: selectedSlot.endTime,
         customerName: name,
         customerEmail: email,
         customerAvatar: avatar,
@@ -133,12 +134,12 @@ export default function PublicBookingPage() {
         emailOtp: otp,
       });
       // If Stripe redirect
-      if (data.url) {
-        window.location.href = data.url;
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
         return;
       }
       navigate(
-        `/booking/success?bookingId=${data.booking?._id || data.bookingId || ""}`
+        `/booking/success?bookingId=${data.booking?._id || data.bookingId || ""}&slug=${slug}`
       );
     } catch (err) {
       setMessage(err.response?.data?.message || "Booking failed.");
@@ -311,7 +312,7 @@ export default function PublicBookingPage() {
                   <div className={s.timeSlotGrid}>
                     {slots.map((slot) => {
                       const time = typeof slot === "string" ? slot : slot.startTime || slot.time;
-                      const isSelected = selectedSlot === time;
+                      const isSelected = selectedSlot?.startTime === time;
                       return (
                         <button
                           key={time}
@@ -320,7 +321,7 @@ export default function PublicBookingPage() {
                             isSelected ? s.slotBtnSelected : s.slotBtnUnselected
                           }`}
                           style={isSelected ? { background: accent } : {}}
-                          onClick={() => setSelectedSlot(time)}
+                          onClick={() => setSelectedSlot(slot)}
                         >
                           <Clock className="w-4 h-4" />
                           {time}

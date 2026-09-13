@@ -10,10 +10,9 @@ const walletTransactionSchema=new mongoose.Schema({
     bookingId:{
         type:mongoose.Schema.Types.ObjectId,
         ref:'Booking',
-        required:true,
         index:true,
     },
-    withdrawlId:{
+    withdrawalId:{
         type:mongoose.Schema.Types.ObjectId,
         ref:'Withdrawl',
         index:true,

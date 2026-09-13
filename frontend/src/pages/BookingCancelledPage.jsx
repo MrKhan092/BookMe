@@ -1,8 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { bookingCancelledPageStyles as s } from "../assets/dummyStyles";
 import { XCircle, ArrowLeft } from "lucide-react";
 
 export default function BookingCancelledPage() {
+  const [searchParams] = useSearchParams();
+  const slug = searchParams.get("slug");
+
   return (
     <div className={s.container}>
       <div className={s.card}>
@@ -15,9 +18,9 @@ export default function BookingCancelledPage() {
           Your payment was cancelled or did not go through. No booking has been
           created. You can try again anytime.
         </p>
-        <Link to="/" className={s.homeLink}>
+        <Link to={slug ? `/book/${slug}` : "/"} className={s.homeLink}>
           <ArrowLeft className={s.homeLinkIcon} />
-          Back to home
+          Try again
         </Link>
       </div>
     </div>

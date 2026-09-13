@@ -54,19 +54,20 @@ export const getPaymentOverview = async (req, res) => {
  */
 export const updatePayoutDetails = async (req, res) => {
   try {
-    const { accountHolderName, bankName, accountNumber, ifsc, upiId } = req.body;
+    const { accountHolderName, bankName, accountLast4, accountNumber, ifsc, upiId } = req.body;
+    const acctLast4 = accountLast4 || (accountNumber ? maskAccountNumber(accountNumber) : '');
 
-    if (!accountHolderName || (!accountNumber && !upiId)) {
+    if (!accountHolderName || (!acctLast4 && !upiId)) {
       return res.status(400).json({ message: 'Account holder and a bank account or UPI ID are required' });
     }
 
     const payoutDetails = {
       accountHolderName,
       bankName: bankName || '',
-      accountLast4: accountNumber ? maskAccountNumber(accountNumber) : '',
+      accountLast4: acctLast4,
       ifsc: ifsc || '',
       upiId: upiId || '',
-      isComplete: Boolean(accountHolderName && (accountNumber || upiId)),
+      isComplete: Boolean(accountHolderName && (acctLast4 || upiId)),
       updatedAt: new Date(),
     };
 
@@ -93,7 +94,7 @@ export const updatePayoutDetails = async (req, res) => {
 export const requestWithdrawal = async (req, res) => {
   try {
     const userId = toObjectId(req.user.id);
-    const amount = Math.round(Number(req.body.amount || 0));
+    const amountInPaisa = Math.round(Number(req.body.amount || 0) * 100);
     const user = await User.findById(userId).select('payoutDetails');
 
     if (!user?.payoutDetails?.isComplete) {
@@ -101,17 +102,17 @@ export const requestWithdrawal = async (req, res) => {
     }
 
     const summary = await getWalletSummary(userId);
-    if (!amount || amount < 100) {
-      return res.status(400).json({ message: 'Withdrawal amount must be at least 100 paise' });
+    if (!amountInPaisa || amountInPaisa < 100) {
+      return res.status(400).json({ message: 'Withdrawal amount must be at least ₹1' });
     }
 
-    if (amount > summary.available) {
+    if (amountInPaisa > summary.available) {
       return res.status(400).json({ message: 'Withdrawal amount exceeds available balance' });
     }
 
     const withdrawal = await Withdrawal.create({
       userId,
-      amount,
+      amount: amountInPaisa,
       payoutSnapshot: user.payoutDetails,
     });
 
@@ -119,7 +120,7 @@ export const requestWithdrawal = async (req, res) => {
       userId,
       withdrawalId: withdrawal._id,
       type: 'withdrawal_hold',
-      amount,
+      amount: amountInPaisa,
       status: 'pending',
       description: 'Withdrawal requested',
     });

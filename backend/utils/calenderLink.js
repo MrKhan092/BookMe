@@ -2,14 +2,14 @@ const toGoogleDateTime=(date,time)=>{
     return `${date.replaceAll('-','')}T${time.replace(':','')}00`;
 };
 
-export const buildCustomerCalenderUrl=({bussiness,service,booking})=>{
+export const buildCustomerCalenderUrl=({business,service,booking})=>{
     const params=new URLSearchParams({
         action:"TEMPLATE",
-        text:`${service.name} booking with ${bussiness.businessName}`,
+        text:`${service.name} booking with ${business.businessName}`,
         dates:`${toGoogleDateTime(booking.date,booking.startTime)}/${toGoogleDateTime(booking.date,booking.endTime)}`,
-        details:Booking.notes|| `Booking with ${bussiness.businessName||bussiness.name}`,
+        details:booking.notes|| `Booking with ${business.businessName||business.name}`,
 
     });
-    return `https://calender.google.com/calendar/render?${params.toString()}`;
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
 };
     

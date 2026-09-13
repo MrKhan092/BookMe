@@ -146,6 +146,7 @@ export const getAdminDashboard = async (req, res) => {
       summary,
       withdrawals,
       recentBookings,
+      perUserStats,
     ] = await Promise.all([
       User.find().select('name email businessName slug payoutDetails createdAt').sort({ createdAt: -1 }).limit(100),
       getAdminSummary(),
@@ -155,11 +156,41 @@ export const getAdminDashboard = async (req, res) => {
         .populate('serviceId', 'name')
         .sort({ updatedAt: -1 })
         .limit(10),
+      Booking.aggregate([
+        { $match: { paymentStatus: 'paid' } },
+        {
+          $group: {
+            _id: '$userId',
+            totalBookings: { $sum: 1 },
+            totalRevenue: { $sum: '$amount' },
+            totalFees: { $sum: '$platformFeeAmount' },
+            totalEarnings: { $sum: '$providerPayoutAmount' },
+          },
+        },
+      ]),
     ]);
+
+    const statsMap = perUserStats.reduce((acc, row) => {
+      acc[String(row._id)] = row;
+      return acc;
+    }, {});
+
+    const enrichedUsers = users.map((u) => {
+      const uObj = u.toObject();
+      const st = statsMap[String(u._id)] || {};
+      return {
+        ...uObj,
+        totalBookings: st.totalBookings || 0,
+        totalRevenue: st.totalRevenue || 0,
+        totalFees: st.totalFees || 0,
+        totalEarnings: st.totalEarnings || 0,
+        payoutReady: u.payoutDetails?.isComplete || false,
+      };
+    });
 
     res.json({
       summary,
-      users,
+      users: enrichedUsers,
       withdrawals,
       recentBookings,
     });

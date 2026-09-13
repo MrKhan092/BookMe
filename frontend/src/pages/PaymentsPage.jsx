@@ -89,11 +89,11 @@ export default function PaymentsPage() {
   const set = (key) => (e) =>
     setPayoutForm((p) => ({ ...p, [key]: e.target.value }));
 
-  const available = payments?.availableBalance || 0;
-  const totalEarned = payments?.totalEarned || 0;
-  const pending = payments?.pendingBalance || 0;
-  const paidOut = payments?.paidOut || 0;
-  const transactions = payments?.recentTransactions || [];
+  const available = payments?.wallet?.available || 0;
+  const totalEarned = payments?.wallet?.earned || 0;
+  const pending = payments?.wallet?.pendingWithdrawals || 0;
+  const paidOut = payments?.wallet?.paidWithdrawals || 0;
+  const transactions = payments?.transactions || [];
 
   return (
     <div className={s.mainGrid}>
@@ -126,7 +126,7 @@ export default function PaymentsPage() {
               </div>
               <span className={s.walletCardLabel}>Available</span>
             </div>
-            <div className={s.walletAmount}>₹{available}</div>
+            <div className={s.walletAmount}>₹{Math.round(available / 100)}</div>
           </div>
 
           <div className={s.walletCard}>
@@ -136,8 +136,8 @@ export default function PaymentsPage() {
               </div>
               <span className={s.walletCardLabel}>Total Earned</span>
             </div>
-            <div className={s.walletAmount}>₹{totalEarned}</div>
-            <div className={s.paidOutText}>Paid out: ₹{paidOut}</div>
+            <div className={s.walletAmount}>₹{Math.round(totalEarned / 100)}</div>
+            <div className={s.paidOutText}>Paid out: ₹{Math.round(paidOut / 100)}</div>
           </div>
 
           <div className={s.walletCard}>
@@ -147,7 +147,7 @@ export default function PaymentsPage() {
               </div>
               <span className={s.walletCardLabel}>Pending</span>
             </div>
-            <div className={s.walletAmount}>₹{pending}</div>
+            <div className={s.walletAmount}>₹{Math.round(pending / 100)}</div>
           </div>
         </div>
 
@@ -159,7 +159,7 @@ export default function PaymentsPage() {
           </div>
           <div className={s.withdrawForm}>
             <div className={s.withdrawInputContainer}>
-              <DollarSign className={s.withdrawInputIcon} />
+              <span className={s.withdrawInputIcon} style={{fontSize: '1rem', fontWeight: 600}}>₹</span>
               <input
                 type="number"
                 className={s.withdrawInput}
@@ -309,7 +309,7 @@ export default function PaymentsPage() {
                         : s.transactionAmountNegative
                     }
                   >
-                    {isPositive ? "+" : ""}₹{Math.abs(tx.amount)}
+                    {isPositive ? "+" : ""}₹{Math.round(Math.abs(tx.amount) / 100)}
                   </span>
                 </div>
               );

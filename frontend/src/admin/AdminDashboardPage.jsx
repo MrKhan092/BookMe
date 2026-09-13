@@ -79,45 +79,46 @@ export default function AdminDashboardPage() {
     );
   }
 
+  const sm = data.summary || {};
   const stats = [
     {
       label: "Total Users",
-      value: data.totalUsers || 0,
+      value: sm.users || 0,
       icon: Users,
       bg: s.statBg1,
       color: s.statColor1,
     },
     {
       label: "Total Bookings",
-      value: data.totalBookings || 0,
+      value: sm.bookings || 0,
       icon: CalendarDays,
       bg: s.statBg2,
       color: s.statColor2,
     },
     {
       label: "Total Revenue",
-      value: `₹${data.totalRevenue || 0}`,
+      value: `₹${Math.round((sm.grossRevenue || 0) / 100)}`,
       icon: DollarSign,
       bg: s.statBg3,
       color: s.statColor3,
     },
     {
       label: "Platform Fees",
-      value: `₹${data.totalPlatformFees || 0}`,
+      value: `₹${Math.round((sm.platformFees || 0) / 100)}`,
       icon: TrendingUp,
       bg: s.statBg4,
       color: s.statColor4,
     },
     {
       label: "Provider Earnings",
-      value: `₹${data.totalProviderEarnings || 0}`,
+      value: `₹${Math.round((sm.walletEarned || 0) / 100)}`,
       icon: Wallet,
       bg: s.statBg5,
       color: s.statColor5,
     },
     {
       label: "Pending Withdrawals",
-      value: data.pendingWithdrawals || 0,
+      value: `₹${Math.round((sm.pendingWithdrawals || 0) / 100)}`,
       icon: Clock,
       bg: s.statBg6,
       color: s.statColor6,
@@ -221,9 +222,9 @@ export default function AdminDashboardPage() {
                       </td>
                       <td className={s.tdMuted}>{u.email}</td>
                       <td className={s.tdBold}>{u.totalBookings || 0}</td>
-                      <td className={s.tdBold}>₹{u.totalRevenue || 0}</td>
-                      <td className={s.tdFees}>₹{u.totalFees || 0}</td>
-                      <td className={s.tdEarnings}>₹{u.totalEarnings || 0}</td>
+                      <td className={s.tdBold}>₹{Math.round((u.totalRevenue || 0) / 100)}</td>
+                      <td className={s.tdFees}>₹{Math.round((u.totalFees || 0) / 100)}</td>
+                      <td className={s.tdEarnings}>₹{Math.round((u.totalEarnings || 0) / 100)}</td>
                       <td className={s.td}>
                         <span
                           className={`${s.payoutStatusBadge} ${
@@ -275,7 +276,7 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
                       <div className={s.withdrawalAmountCol}>
-                        <div className={s.withdrawalAmount}>₹{w.amount}</div>
+                        <div className={s.withdrawalAmount}>₹{Math.round((w.amount || 0) / 100)}</div>
                         <div className={s.withdrawalStatusWrap}>
                           <span
                             className={`${s.withdrawalStatusBadge} ${statusColor}`}
@@ -286,12 +287,33 @@ export default function AdminDashboardPage() {
                       </div>
                     </div>
 
-                    {w.payoutDetails && (
+                    {w.payoutSnapshot && (
                       <div className={s.withdrawalAccountInfo}>
                         <Building2 className={s.withdrawalAccountIcon} />
-                        {w.payoutDetails.bankName} ···{" "}
-                        {w.payoutDetails.accountLast4}
-                        {w.payoutDetails.upiId && ` | UPI: ${w.payoutDetails.upiId}`}
+                        {w.payoutSnapshot.bankName} ···{" "}
+                        {w.payoutSnapshot.accountLast4}
+                        {w.payoutSnapshot.upiId && ` | UPI: ${w.payoutSnapshot.upiId}`}
+                      </div>
+                    )}
+
+                    {w.status === "pending" && (
+                      <div className={s.withdrawalActions}>
+                        <button
+                          className={`${s.withdrawalActionBtn} ${s.withdrawalActionBtnInactive}`}
+                          onClick={() =>
+                            handleWithdrawalAction(w._id, "processing")
+                          }
+                        >
+                          ⏳ Start Processing
+                        </button>
+                        <button
+                          className={`${s.withdrawalActionBtn} ${s.withdrawalActionBtnInactive}`}
+                          onClick={() =>
+                            handleWithdrawalAction(w._id, "rejected")
+                          }
+                        >
+                          ✗ Reject
+                        </button>
                       </div>
                     )}
 
@@ -361,7 +383,7 @@ export default function AdminDashboardPage() {
                       {bk.serviceId?.name || "–"}
                     </td>
                     <td className={s.tdMuted}>{bk.date}</td>
-                    <td className={s.tdBold}>₹{bk.amount || 0}</td>
+                    <td className={s.tdBold}>₹{Math.round((bk.amount || 0) / 100)}</td>
                     <td className={s.td}>
                       <span
                         className={`${s.payoutStatusBadge} ${

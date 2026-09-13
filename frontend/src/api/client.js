@@ -22,8 +22,12 @@ const persistTokenResponse = (response) => {
 
 client.interceptors.response.use(persistTokenResponse, (error) => {
     if (error.response?.status === 401) {
-        localStorage.removeItem("token");
-        window.location.assign('/login');
+        const url = error.config?.url || '';
+        // Don't redirect to login for public (unauthenticated) API calls
+        if (!url.includes('/public/')) {
+            localStorage.removeItem("token");
+            window.location.assign('/login');
+        }
     }
     return Promise.reject(error);
 });
