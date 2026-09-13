@@ -3,14 +3,13 @@ import Service from "../models/Service.js";
 import User from "../models/User.js";
 
 import {buildCustomerCalenderUrl} from "../utils/calenderLink.js"
-import { createBookingCalendarEvent } from "../utils/googleCalendar.js";
-import {sendBookingNotification} from "../utils/bookingNotifications.js";
 import { requestEmailOtp ,verifyEmailOtp } from "../utils/emailOtp.js";
 import {generateSlots} from "../utils/slotGenerator.js";
 import {getStripe,toStripeAmount} from "../utils/stripe.js";
 import { calculatePlatformSplit } from "../utils/money.js";
 import { timeOverlap } from "../utils/overlap.js";
-import { createBookingPayouttransaction } from "../utils/wallet.js";
+import { publishEvent } from "../kafka/producer.js";
+import { TOPICS } from "../kafka/topics.js";
 
 const getBusinessBySlug = async (slug) => {
     return User.findOne({slug}).select('-password');
@@ -221,25 +220,17 @@ export const createPublicBooking = async (req, res) => {
     });
 
     if (amount === 0) {
-      try {
-        const calendarResult = await createBookingCalendarEvent({ business, service, booking });
-        booking.googleEventId = calendarResult.googleEventId || '';
-        booking.customerCalendarUrl = calendarResult.customerCalendarUrl;
-        await booking.save();
-      } catch (calendarError) {
-        booking.customerCalendarUrl = customerCalendarUrl;
-        await booking.save();
-      }
-
-      let emailResult = { sent: 'processing' };
-      sendBookingNotification({ business, service, booking, type: 'confirmed' })
-        .catch(emailError => console.error('Booking confirmation email failed:', emailError.message));
+      // Publish event to Kafka — email, calendar, and wallet workers handle the rest
+      await publishEvent(TOPICS.BOOKING_CREATED, {
+        bookingId: String(booking._id),
+        userId: String(business._id),
+        serviceId: String(serviceId),
+      }, String(booking._id));
 
       return res.status(201).json({
         message: 'Booking confirmed',
         booking,
         customerCalendarUrl: booking.customerCalendarUrl,
-        email: emailResult,
       });
     }
 
@@ -308,23 +299,14 @@ const confirmPaidBooking = async ({ booking, business, service, session }) => {
   booking.status = 'confirmed';
   booking.paymentStatus = 'paid';
   booking.payoutStatus = booking.providerPayoutAmount > 0 ? 'available' : 'not_required';
-
-  try {
-    const calendarResult = await createBookingCalendarEvent({ business, service, booking });
-    booking.googleEventId = calendarResult.googleEventId || '';
-    booking.customerCalendarUrl = calendarResult.customerCalendarUrl || booking.customerCalendarUrl;
-  } catch (calendarError) {
-    console.error('Google Calendar confirmation failed:', calendarError.message);
-  }
-
   await booking.save();
-  await createBookingPayouttransaction({
-    booking,
-    description: `Booking payment from ${booking.customerName || 'Customer'}`,
-  });
 
-  sendBookingNotification({ business, service, booking, type: 'confirmed' })
-    .catch(emailError => console.error('Booking confirmation email failed:', emailError.message));
+  // Publish event to Kafka — email, calendar, and wallet workers handle the rest
+  await publishEvent(TOPICS.BOOKING_PAYMENT_CONFIRMED, {
+    bookingId: String(booking._id),
+    userId: String(booking.userId),
+    serviceId: String(booking.serviceId),
+  }, String(booking._id));
 
   return booking;
 };

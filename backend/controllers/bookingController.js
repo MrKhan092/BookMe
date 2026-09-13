@@ -2,9 +2,9 @@ import Booking from '../models/Booking.js';
 import Service from '../models/Service.js';
 import User from '../models/User.js';
 import { buildCustomerCalenderUrl } from '../utils/calenderLink.js';
-import { cancelBookingCalendarEvent, updateBookingCalendarEvent } from '../utils/googleCalendar.js';
-import { sendBookingNotification } from '../utils/bookingNotifications.js';
 import { timeOverlap } from '../utils/overlap.js';
+import { publishEvent } from '../kafka/producer.js';
+import { TOPICS } from '../kafka/topics.js';
 
 /**
  * Retrieves a list of bookings for the authenticated user based on query parameters.
@@ -86,27 +86,15 @@ export const updateBookingStatus = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    const business = await User.findById(req.user.id);
-    if (business && status === 'cancelled') {
-      try {
-        await cancelBookingCalendarEvent({ business, booking });
-      } catch (calendarError) {
-        console.error('Google Calendar cancellation failed:', calendarError.message);
-      }
+    if (status === 'cancelled') {
+      // Publish event to Kafka — email and calendar workers handle the rest
+      await publishEvent(TOPICS.BOOKING_CANCELLED, {
+        bookingId: String(booking._id),
+        userId: String(req.user.id),
+      }, String(booking._id));
     }
 
-    let emailResult = null;
-    if (business && booking.serviceId) {
-      emailResult = { sent: 'processing' };
-      sendBookingNotification({
-        business,
-        service: booking.serviceId,
-        booking,
-        type: status === 'cancelled' ? 'cancelled' : 'status',
-      }).catch(emailError => console.error('Booking status email failed:', emailError.message));
-    }
-
-    res.json({ message: 'Booking updated', booking, email: emailResult });
+    res.json({ message: 'Booking updated', booking });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -154,34 +142,18 @@ export const rescheduleBooking = async (req, res) => {
     booking.status = booking.status === 'cancelled' ? 'confirmed' : booking.status;
     booking.isRescheduled = true;
     booking.rescheduleCount = (booking.rescheduleCount || 0) + 1;
-
-    const [business, service] = await Promise.all([
-      User.findById(req.user.id),
-      Service.findById(booking.serviceId),
-    ]);
-
-    if (business && service) {
-      try {
-        const calendarResult = await updateBookingCalendarEvent({ business, service, booking });
-        booking.googleEventId = calendarResult.googleEventId || booking.googleEventId || '';
-        booking.customerCalendarUrl = calendarResult.customerCalendarUrl || booking.customerCalendarUrl;
-      } catch (calendarError) {
-        console.error('Google Calendar reschedule failed:', calendarError.message);
-      }
-    }
-
     await booking.save();
 
     const populatedBooking = await Booking.findById(booking._id).populate('serviceId', 'name duration price');
 
-    let emailResult = null;
-    if (business && service) {
-      emailResult = { sent: 'processing' };
-      sendBookingNotification({ business, service, booking: populatedBooking, type: 'rescheduled' })
-        .catch(emailError => console.error('Booking reschedule email failed:', emailError.message));
-    }
+    // Publish event to Kafka — email and calendar workers handle the rest
+    await publishEvent(TOPICS.BOOKING_RESCHEDULED, {
+      bookingId: String(booking._id),
+      userId: String(req.user.id),
+      serviceId: String(booking.serviceId),
+    }, String(booking._id));
 
-    res.json({ message: 'Booking rescheduled', booking: populatedBooking, email: emailResult });
+    res.json({ message: 'Booking rescheduled', booking: populatedBooking });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

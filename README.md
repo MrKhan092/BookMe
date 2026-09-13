@@ -353,6 +353,59 @@ Providers can customize their public booking page with:
 | `STRIPE_SECRET_KEY` | Stripe secret key |
 | `ADMIN_EMAIL` | Admin panel login email |
 | `ADMIN_PASSWORD` | Admin panel login password |
+| `KAFKA_BROKERS` | Kafka broker addresses (default: `localhost:9092`) |
+| `KAFKA_CLIENT_ID` | Kafka client identifier (default: `bookme-backend`) |
+
+---
+
+## 📨 Kafka Event-Driven Architecture
+
+BookMe uses **Apache Kafka** to decouple side effects (emails, calendar sync, wallet credits) from the main API request flow. This makes API responses instant and each background task independent and fault-tolerant.
+
+### Architecture
+
+```
+Controller (Producer)                    Kafka Consumers (Workers)
+─────────────────────                    ────────────────────────
+
+createPublicBooking()                    📧 Email Worker
+  → save booking to DB                     → sends confirmation/cancellation emails
+  → publish "booking.created" ──────────►  
+                                         📅 Calendar Worker
+updateBookingStatus()                      → creates/updates/cancels Google Calendar events
+  → update booking in DB                  
+  → publish "booking.cancelled" ────────► 💰 Wallet Worker
+                                           → credits provider wallet for paid bookings
+rescheduleBooking()                      
+  → update booking in DB                 Each worker runs in its own consumer group
+  → publish "booking.rescheduled" ──────► and processes events independently.
+```
+
+### Kafka Topics
+
+| Topic | Published When | Consumers |
+|---|---|---|
+| `booking.created` | Free booking confirmed | Email, Calendar, Wallet |
+| `booking.payment-confirmed` | Stripe payment succeeds | Email, Calendar, Wallet |
+| `booking.cancelled` | Provider cancels booking | Email, Calendar |
+| `booking.rescheduled` | Provider reschedules booking | Email, Calendar |
+| `withdrawal.requested` | Provider requests withdrawal | (Future) |
+| `withdrawal.status-changed` | Admin updates withdrawal | (Future) |
+
+### Running Kafka Locally
+
+```bash
+# Start Kafka + Kafka UI (requires Docker)
+docker compose up -d
+
+# Kafka UI — view topics and messages
+open http://localhost:8080
+
+# Start the backend (Kafka producer + consumers auto-start)
+cd backend && npm start
+```
+
+> **Note:** The app works even without Kafka running — events are simply skipped with a warning. This makes development without Docker seamless.
 
 ---
 

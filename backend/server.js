@@ -3,6 +3,8 @@ import cors from 'cors';
 import 'dotenv/config';
 import http from 'http';
 import { connectDB } from './config/db.js';
+import { connectProducer } from './kafka/producer.js';
+import { startAllConsumers } from './kafka/startConsumers.js';
 import authRoutes from './routes/authRouter.js';
 import adminRoute from './routes/adminRoute.js'
 import serviceRoutes from './routes/serviceRoutes.js';
@@ -32,6 +34,18 @@ app.use('/api/bookings',bookingRoutes);
 app.use('/api/payments',paymentRoutes);
 app.use('/api/public',publicRoutes);
 app.use('/public',publicRoutes)
+
+// Start Kafka producer and consumers
+const startKafka = async () => {
+  try {
+    await connectProducer();
+    await startAllConsumers();
+  } catch (err) {
+    console.warn('⚠️  Kafka initialization failed (app will still work without async events):', err.message);
+  }
+};
+
+startKafka();
 
 const server = http.createServer(app);
 server.on('error', (err) => {

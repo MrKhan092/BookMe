@@ -11,8 +11,8 @@ export const getGoogleConnectUrl=async (req ,res)=>{
 
 export const handleGoogleCallback=async (req ,res)=>{
     try{
-        const {code,state}=req.query;
-    if(!code || !state){
+        const {code,state:userId}=req.query;
+    if(!code || !userId){
         return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/profile?calendar=failed`);
     }
     const token=await getGoogleTokens(code);
@@ -20,7 +20,7 @@ export const handleGoogleCallback=async (req ,res)=>{
         return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/profile?calendar=missing-refresh-token`);
     };
 
-    await User.findByIdAndUpdate(req.user.id,{
+    await User.findByIdAndUpdate(userId,{
         googleRefreshToken:token.refresh_token,
         googleCalendarId:'primary',
         googleCalendarConnected:true,
