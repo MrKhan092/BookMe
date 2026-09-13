@@ -10,6 +10,8 @@ import { calculatePlatformSplit } from "../utils/money.js";
 import { timeOverlap } from "../utils/overlap.js";
 import { publishEvent } from "../kafka/producer.js";
 import { TOPICS } from "../kafka/topics.js";
+import { getCache, setCache, invalidateCache } from "../utils/cache.js";
+import { acquireSlotLock, releaseSlotLock } from "../utils/slotLock.js";
 
 const getBusinessBySlug = async (slug) => {
     return User.findOne({slug}).select('-password');
@@ -45,7 +47,16 @@ const findActiveSlotBookings=({userId,date})=>{
 
 export const getPublicBusiness=async(req ,res)=>{
     try{
-        const business=await getBusinessBySlug(req.params.slug);
+        const slug = req.params.slug;
+
+        // Check cache first
+        const cacheKey = `cache:business:${slug}`;
+        const cached = await getCache(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
+        const business=await getBusinessBySlug(slug);
         if(!business){
             return res.status(404).json({success:false,message:'Business not found'});
         }
@@ -55,10 +66,16 @@ export const getPublicBusiness=async(req ,res)=>{
             isActive:true,
             isDeleted:{$ne:true},
         }).sort({name:1})
-        res.json({
+
+        const responseData = {
             business:toPublicBusiness(business),
             services
-        });
+        };
+
+        // Cache for 60 seconds
+        await setCache(cacheKey, responseData, 60);
+
+        res.json(responseData);
     }catch(error){
         res.status(500).json({success:false,message:'Failed to fetch business'});
     }
@@ -70,7 +87,17 @@ export const getPublicSlots=async(req ,res)=>{
         if(!date || !serviceId){
             return res.status(400).json({success:false,message:'Date and serviceId are required'});
         }
-        const business=await getBusinessBySlug(req.params.slug);
+
+        const slug = req.params.slug;
+
+        // Check cache first
+        const cacheKey = `cache:slots:${slug}:${serviceId}:${date}`;
+        const cached = await getCache(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
+        const business=await getBusinessBySlug(slug);
         if(!business){
             return res.status(404).json({success:false,message:'Business not found'});
         }
@@ -85,7 +112,12 @@ export const getPublicSlots=async(req ,res)=>{
         }
 
         const slots=await generateSlots({userId:business._id,service,date});
-        res.json({slots});
+        const responseData = { slots };
+
+        // Cache for 30 seconds
+        await setCache(cacheKey, responseData, 30);
+
+        res.json(responseData);
 
     }catch(error){
         res.status(500).json({message:'Failed to fetch slots',error:error.message});
@@ -171,6 +203,12 @@ export const createPublicBooking = async (req, res) => {
 
     if (hasConflict) {
       return res.status(409).json({ message: 'That slot is no longer available' });
+    }
+
+    // Acquire slot lock to prevent double-booking
+    const lockAcquired = await acquireSlotLock(String(business._id), date, startTime);
+    if (!lockAcquired) {
+      return res.status(409).json({ message: 'This slot is currently being booked by someone else. Please try another slot.' });
     }
 
     const otpResult = await verifyEmailOtp({
@@ -371,9 +409,18 @@ export const cancelPublicBookingPayment = async (req, res) => {
       return res.json({ message: 'No pending booking to cancel' });
     }
 
+    // Release the slot lock so others can book this slot
+    await releaseSlotLock(String(booking.userId), booking.date, booking.startTime);
+
     booking.status = 'payment_failed';
     booking.paymentStatus = 'failed';
     await booking.save();
+
+    // Invalidate slot cache for this provider
+    const business = await User.findById(booking.userId).select('slug');
+    if (business) {
+      await invalidateCache(`cache:slots:${business.slug}:*`);
+    }
 
     res.json({ message: 'Payment was not completed. No booking was created.' });
   } catch (error) {
