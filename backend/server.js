@@ -3,6 +3,7 @@ import cors from 'cors';
 import 'dotenv/config';
 import http from 'http';
 import { connectDB } from './config/db.js';
+import { connectRedis } from './config/redis.js';
 import { connectProducer } from './kafka/producer.js';
 import { startAllConsumers } from './kafka/startConsumers.js';
 import authRoutes from './routes/authRouter.js';
@@ -19,6 +20,7 @@ app.use(cors());
 app.use(express.json());
 
 connectDB();
+connectRedis();
 
 
 app.get('/', (req, res) => {
